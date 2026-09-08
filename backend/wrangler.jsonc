@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "automated-financial-api",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "FRONTEND_ORIGIN": "http://localhost:5173",
+    "JWT_EXPIRES_IN": "8h"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "automated-financial-prod",
+      "database_id": "af528add-79eb-439c-9cbb-e1b5cbcbd1f0",
+      "migrations_dir": "db/migrations"
+    }
+  ]
+}

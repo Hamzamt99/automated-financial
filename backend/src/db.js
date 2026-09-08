@@ -1,28 +1,20 @@
-import pg from "pg";
-import { config } from "./config.js";
+import { env } from "cloudflare:workers";
 
-const { Pool } = pg;
-pg.types.setTypeParser(1082, (value) => value);
+export const database = () => env.DB;
 
-export const pool = new Pool({
-  connectionString: config.databaseUrl,
-  max: Number(process.env.DB_POOL_SIZE || 10),
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-  ssl: config.isProduction && process.env.DB_SSL !== "false" ? { rejectUnauthorized: false } : undefined
-});
+export async function all(sql, ...bindings) {
+  const result = await database().prepare(sql).bind(...bindings).all();
+  return result.results || [];
+}
 
-export async function transaction(callback) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await callback(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+export async function first(sql, ...bindings) {
+  return database().prepare(sql).bind(...bindings).first();
+}
+
+export async function run(sql, ...bindings) {
+  return database().prepare(sql).bind(...bindings).run();
+}
+
+export async function batch(statements) {
+  return database().batch(statements);
 }

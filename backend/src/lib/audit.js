@@ -1,7 +1,14 @@
-export async function writeAudit(client, request, action, entityType, entityId, beforeData = null, afterData = null) {
-  await client.query(
+export function auditStatement(db, request, action, entityType, entityId, beforeData = null, afterData = null) {
+  return db.prepare(
     `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_data, after_data, ip_address)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [request.user?.sub || null, action, entityType, String(entityId), beforeData, afterData, request.ip]
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    request.user?.sub || null,
+    action,
+    entityType,
+    String(entityId),
+    beforeData ? JSON.stringify(beforeData) : null,
+    afterData ? JSON.stringify(afterData) : null,
+    request.headers["cf-connecting-ip"] || request.ip || null
   );
 }

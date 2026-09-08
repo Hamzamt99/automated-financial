@@ -1,68 +1,106 @@
-# Production Ledger
+# Automated Financial — Production Ledger
 
-نظام عربي لإدارة أعمال المشغلين والعمال، مبني كتطبيقين منفصلين:
+نظام عربي لإدارة أعمال المشغلين والعمال، جاهز للعمل على Cloudflare:
 
-- `frontend`: React + Vite
-- `backend`: Node.js + Express REST API
-- `database`: PostgreSQL
+- `frontend`: React + Vite على Cloudflare Workers Static Assets
+- `backend`: Express API على Cloudflare Workers
+- `database`: Cloudflare D1
 
 ## Business rules
 
-- دورة الاستحقاق الشهرية تبدأ يوم 21 وتنتهي يوم 20 من الشهر التالي.
+- دورة الاستحقاق تبدأ يوم 21 وتنتهي يوم 20 من الشهر التالي.
 - مستحق المشغل = أمتار المشغل × 0.20 د.أ.
 - مستحق العامل = أمتار العامل × 0.09 د.أ.
 - عند وجود عاملين، تقسم الأمتار بالتساوي بينهما.
-- الإضافات مستقلة تماماً عن مستحقات الأمتار ولها مجموع منفصل.
-- العامل مسجل مرة واحدة ويصبح متاحاً لجميع المشغلين.
+- الإضافات مستقلة عن مستحقات الأمتار ولها مجموع منفصل.
+- العامل مسجل مرة واحدة ويظهر لدى جميع المشغلين.
 
-يمكن تغيير الأسعار ويوم بداية الدورة في جدول `company_settings` بدون تغيير الكود.
+## Local development
 
-## Local setup
-
-Requirements: Node.js 22+, npm, PostgreSQL 16+ (or Docker).
+Requirements: Node.js 22+ and npm.
 
 ```bash
-cp .env.example .env
-docker compose up -d database
 npm install
-npm run db:migrate -w backend
-npm run db:seed -w backend
+cp backend/.dev.vars.example backend/.dev.vars
+npm run db:migrate:local -w backend
 npm run dev
 ```
 
-Open `http://localhost:5173`. The API runs at `http://localhost:4000`.
+Open `http://localhost:5173`. The API runs at `http://localhost:8787`.
 
-The seed command creates the administrator from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Change both values before running it. Demo data is only created when `SEED_DEMO_DATA=true`.
+On an empty database, the web app shows the one-time administrator setup form. Use the same `SETUP_TOKEN` value saved in `backend/.dev.vars`. After the first administrator is created, that form is disabled automatically.
 
-## Docker deployment
+## First Cloudflare deployment
 
-After creating a secure `.env` file:
+The D1 binding is already configured as `DB` for database `automated-financial-prod`.
 
-```bash
-docker compose up --build -d
-docker compose exec api npm run db:seed
-```
+1. Authenticate Wrangler:
 
-The web app is available at `http://localhost:8080` and the API at `http://localhost:4000`.
+   ```bash
+   npx wrangler login
+   ```
 
-## API structure
+2. Save production secrets. Use long, different random values and keep the setup token temporarily:
 
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `GET|POST /api/operators`
-- `PATCH|DELETE /api/operators/:id`
-- `GET|POST /api/workers`
-- `PATCH|DELETE /api/workers/:id`
-- `POST /api/records`
-- `PUT|DELETE /api/records/:id`
-- `GET /api/reports/operators/:id?month=YYYY-MM`
-- `GET /api/reports/workers/:id?month=YYYY-MM`
+   ```bash
+   cd backend
+   npx wrangler secret put JWT_SECRET
+   npx wrangler secret put SETUP_TOKEN
+   cd ..
+   ```
 
-All routes except health and login require a bearer token. Write operations require an `admin` or `accountant` role. Destructive people operations are soft deletes, and all changes are recorded in `audit_logs`.
+3. Apply the schema and deploy the API (the deploy script safely runs pending D1 migrations first):
+
+   ```bash
+   npm run deploy:api
+   ```
+
+   Wrangler prints an API URL similar to:
+
+   ```text
+   https://automated-financial-api.<your-subdomain>.workers.dev
+   ```
+
+4. Build and deploy the web app using that URL:
+
+   ```bash
+   VITE_API_URL=https://automated-financial-api.<your-subdomain>.workers.dev/api npm run deploy:web
+   ```
+
+5. Open the printed `automated-financial-web` URL. Create the first administrator using the production `SETUP_TOKEN`, then sign in.
+
+6. Keep both secrets stored in Cloudflare. The API rejects setup permanently once the first user exists, even if someone knows the setup token.
+
+## Cloudflare dashboard Git deployments
+
+Create two Workers applications from the same GitHub repository.
+
+### API application
+
+- Project name: `automated-financial-api`
+- Root directory: `backend`
+- Build command: leave empty
+- Deploy command: `npm run deploy`
+
+Add the secrets `JWT_SECRET` and `SETUP_TOKEN` in the application settings. D1 is linked by `backend/wrangler.jsonc`.
+
+### Web application
+
+- Project name: `automated-financial-web`
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+- Build variable: `VITE_API_URL=https://automated-financial-api.<your-subdomain>.workers.dev/api`
 
 ## Verification
 
 ```bash
 npm test
 npm run build
+```
+
+Useful health check:
+
+```bash
+curl https://automated-financial-api.<your-subdomain>.workers.dev/api/health
 ```

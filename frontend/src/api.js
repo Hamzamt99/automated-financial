@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8787/api").replace(/\/$/, "");
 const TOKEN_KEY = "production-ledger-token";
 
 export const authStore = {

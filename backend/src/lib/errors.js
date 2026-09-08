@@ -16,14 +16,14 @@ export function notFound(request, response) {
 
 export function errorHandler(error, request, response, next) {
   if (response.headersSent) return next(error);
-  if (error.code === "23505") {
+  if (error.code === "23505" || error.message?.includes("UNIQUE constraint failed")) {
     return response.status(409).json({ error: { code: "DUPLICATE", message: "هذه البيانات موجودة مسبقاً." } });
   }
-  if (error.code === "23503") {
+  if (error.code === "23503" || error.message?.includes("FOREIGN KEY constraint failed")) {
     return response.status(409).json({ error: { code: "IN_USE", message: "لا يمكن تنفيذ العملية لأن السجل مرتبط ببيانات أخرى." } });
   }
   const status = error.status || 500;
-  if (status >= 500) request.log?.error(error);
+  if (status >= 500) console.error(error);
   response.status(status).json({
     error: {
       code: error.code || "INTERNAL_ERROR",
