@@ -7,6 +7,7 @@ import { authRouter } from "./routes/auth.js";
 import { entityRouter } from "./routes/entities.js";
 import { recordsRouter } from "./routes/records.js";
 import { reportsRouter } from "./routes/reports.js";
+import { attendanceRouter } from "./routes/attendance.js";
 import { requireAuth } from "./middleware/auth.js";
 import { asyncHandler, errorHandler, notFound } from "./lib/errors.js";
 
@@ -36,5 +37,6 @@ app.use("/api", requireAuth);
 app.use("/api", entityRouter);
 app.use("/api/records", recordsRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/attendance", attendanceRouter);
 app.use(notFound);
 app.use(errorHandler);
