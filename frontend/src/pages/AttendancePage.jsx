@@ -75,7 +75,7 @@ export default function AttendancePage() {
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, 1))} title="اليوم التالي"><ChevronLeft size={20}/></button>
         {date !== today() && <button className="text-button" onClick={() => selectDate(today())}>اليوم</button>}
       </div>
-      <div className="attendance-rules"><Clock3 size={18}/><span>الدوام الرسمي <bdi>07:00 – 17:00</bdi></span><i></i><span>قبل <bdi>06:00</bdi> = <strong>سروة</strong></span><i></i><span>بعد <bdi>18:00</bdi> = <strong>سهرة</strong></span></div>
+      <div className="attendance-rules"><Clock3 size={18}/><span>الدوام الرسمي <bdi>07:00 – 17:00</bdi></span><i></i><span>قبل <bdi>06:00</bdi> = <strong>سروة</strong></span><i></i><span>بعد <bdi>21:00</bdi> = <strong>سهرة</strong></span></div>
     </section>
 
     {error && <div className="alert error no-print">{error}<button onClick={() => load(date)}>إعادة المحاولة</button></div>}
