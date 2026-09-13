@@ -31,7 +31,9 @@ export default function AttendancePage() {
     setLoading(true); setError("");
     try {
       const result = await api(`/attendance?date=${selectedDate}`);
-      setRows(result.rows); setSummary(result.summary); setEditing(result.summary.recorded === 0); setDirty(false);
+      const isNewDay = result.summary.recorded === 0;
+      setRows(isNewDay ? result.rows.map((row) => ({ ...row, checkIn: "07:00", checkOut: "16:00" })) : result.rows);
+      setSummary(result.summary); setEditing(isNewDay); setDirty(false);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   };
@@ -77,7 +79,7 @@ export default function AttendancePage() {
       <header className="attendance-sheet-header">
         <div><small>كشف الحضور اليومي</small><h2>{dayName(date)}، {displayDate(date)}</h2></div>
         <div className="attendance-progress no-print"><span>{number(summary.recorded)} من {number(summary.total)} مسجل</span><div><i style={{ width: `${summary.total ? summary.recorded / summary.total * 100 : 0}%` }}></i></div></div>
-        <div className="attendance-sheet-actions no-print">{editing ? <><button className="button primary" onClick={save} disabled={saving || !dirty}><Save size={17}/>{saving ? "جارٍ الحفظ..." : "حفظ اليوم"}</button><button className="button secondary" onClick={() => load(date)} disabled={saving}><RotateCcw size={16}/>إلغاء</button></> : <button className="button secondary" onClick={() => setEditing(true)}><Pencil size={17}/>تعديل الأوقات</button>}</div>
+        <div className="attendance-sheet-actions no-print">{editing ? <><button className="button primary" onClick={save} disabled={saving}><Save size={17}/>{saving ? "جارٍ الحفظ..." : "حفظ اليوم"}</button><button className="button secondary" onClick={() => load(date)} disabled={saving}><RotateCcw size={16}/>إلغاء</button></> : <button className="button secondary" onClick={() => setEditing(true)}><Pencil size={17}/>تعديل الأوقات</button>}</div>
       </header>
       <div className="print-only attendance-print-meta"><strong>كادر المضخات</strong><span>يوم الأسبوع: {dayName(date)}</span><span>التاريخ: {displayDate(date)}</span></div>
       <div className="table-scroll"><table className="attendance-table"><thead><tr><th>رمز</th><th>اسم الموظف</th><th>يوم الأسبوع</th><th>التاريخ</th><th>وقت الدخول</th><th>وقت الخروج</th></tr></thead><tbody>
