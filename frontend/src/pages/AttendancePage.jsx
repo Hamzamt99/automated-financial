@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Pencil, Printer, RotateCcw, Save } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Pencil, Printer, RotateCcw, Save, UserCheck } from "lucide-react";
 import { api } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { dayName, displayDate, number, today } from "../utils.js";
@@ -32,8 +32,7 @@ export default function AttendancePage() {
     try {
       const result = await api(`/attendance?date=${selectedDate}`);
       const isNewDay = result.summary.recorded === 0;
-      setRows(isNewDay ? result.rows.map((row) => ({ ...row, checkIn: "07:00", checkOut: "16:00" })) : result.rows);
-      setSummary(result.summary); setEditing(isNewDay); setDirty(false);
+      setRows(result.rows); setSummary(result.summary); setEditing(isNewDay); setDirty(false);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   };
@@ -47,6 +46,10 @@ export default function AttendancePage() {
   const changeTime = (employeeCode, field, value) => {
     setRows((current) => current.map((row) => row.employeeCode === employeeCode ? { ...row, [field]: value || null } : row));
     setDirty(true);
+  };
+  const fillAttendance = () => {
+    setRows((current) => current.map((row) => !row.checkIn && !row.checkOut ? { ...row, checkIn: "07:00", checkOut: "16:00" } : row));
+    setEditing(true); setDirty(true);
   };
   const save = async () => {
     setSaving(true); setError("");
@@ -67,6 +70,7 @@ export default function AttendancePage() {
       <div className="attendance-date-nav">
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, -1))} title="اليوم السابق"><ChevronRight size={20}/></button>
         <label><CalendarDays size={19}/><span>تاريخ السجل</span><input type="date" value={date} onChange={(event) => selectDate(event.target.value)}/></label>
+        <button className="button attendance-fill-button" onClick={fillAttendance} title="تعبئة الدوام الرسمي للموظفين غير المسجلين"><UserCheck size={17}/>حاضر</button>
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, 1))} title="اليوم التالي"><ChevronLeft size={20}/></button>
         {date !== today() && <button className="text-button" onClick={() => selectDate(today())}>اليوم</button>}
       </div>
