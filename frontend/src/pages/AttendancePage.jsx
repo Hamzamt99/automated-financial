@@ -47,8 +47,10 @@ export default function AttendancePage() {
     setRows((current) => current.map((row) => row.employeeCode === employeeCode ? { ...row, [field]: value || null } : row));
     setDirty(true);
   };
-  const fillAttendance = () => {
-    setRows((current) => current.map((row) => !row.checkIn && !row.checkOut ? { ...row, checkIn: "07:00", checkOut: "16:00" } : row));
+  const markPresent = (employeeCode) => {
+    setRows((current) => current.map((row) => row.employeeCode === employeeCode
+      ? { ...row, checkIn: row.checkIn || "07:00", checkOut: row.checkOut || "16:00" }
+      : row));
     setEditing(true); setDirty(true);
   };
   const save = async () => {
@@ -70,7 +72,6 @@ export default function AttendancePage() {
       <div className="attendance-date-nav">
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, -1))} title="اليوم السابق"><ChevronRight size={20}/></button>
         <label><CalendarDays size={19}/><span>تاريخ السجل</span><input type="date" value={date} onChange={(event) => selectDate(event.target.value)}/></label>
-        <button className="button attendance-fill-button" onClick={fillAttendance} title="تعبئة الدوام الرسمي للموظفين غير المسجلين"><UserCheck size={17}/>حاضر</button>
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, 1))} title="اليوم التالي"><ChevronLeft size={20}/></button>
         {date !== today() && <button className="text-button" onClick={() => selectDate(today())}>اليوم</button>}
       </div>
@@ -89,7 +90,7 @@ export default function AttendancePage() {
       <div className="table-scroll"><table className="attendance-table"><thead><tr><th>رمز</th><th>اسم الموظف</th><th>يوم الأسبوع</th><th>التاريخ</th><th>وقت الدخول</th><th>وقت الخروج</th></tr></thead><tbody>
         {rows.map((row) => <tr key={row.employeeCode} className={row.checkIn || row.checkOut ? "recorded" : ""}>
           <td><bdi className="employee-code">{row.employeeCode}</bdi></td>
-          <td><strong>{row.name}</strong></td>
+          <td><div className="attendance-employee-cell"><strong>{row.name}</strong><button type="button" className="attendance-row-button no-print" disabled={Boolean(row.checkIn && row.checkOut)} onClick={() => markPresent(row.employeeCode)} title={`تسجيل حضور ${row.name}`}><UserCheck size={15}/>{row.checkIn && row.checkOut ? "تم" : "حاضر"}</button></div></td>
           <td>{dayName(date)}</td>
           <td><bdi className="attendance-row-date">{displayDate(date)}</bdi></td>
           <td>{editing ? <input className="attendance-time-input" type="time" step="60" value={row.checkIn || ""} onChange={(event) => changeTime(row.employeeCode, "checkIn", event.target.value)} aria-label={`وقت دخول ${row.name}`}/> : <AttendanceValue value={row.checkInDisplay} kind="early"/>}</td>
