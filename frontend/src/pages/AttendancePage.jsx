@@ -10,8 +10,9 @@ const shiftDate = (value, amount) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
 
-function AttendanceValue({ value, kind }) {
+function AttendanceValue({ value, kind, labels = [] }) {
   if (!value) return <span className="attendance-empty">—</span>;
+  if (labels.length) return <span className="attendance-special-group">{labels.map((label) => <span key={label} className={`attendance-special ${label === "عشاء" ? "dinner" : kind}`}>{label}</span>)}</span>;
   const special = value === "سروة" || value === "سهرة";
   return <span className={special ? `attendance-special ${kind}` : "attendance-time"}>{value}</span>;
 }
@@ -75,7 +76,7 @@ export default function AttendancePage() {
         <button className="icon-button" onClick={() => selectDate(shiftDate(date, 1))} title="اليوم التالي"><ChevronLeft size={20}/></button>
         {date !== today() && <button className="text-button" onClick={() => selectDate(today())}>اليوم</button>}
       </div>
-      <div className="attendance-rules"><Clock3 size={18}/><span>الدوام الرسمي <bdi>07:00 – 17:00</bdi></span><i></i><span>قبل <bdi>06:00</bdi> = <strong>سروة</strong></span><i></i><span>بعد <bdi>21:00</bdi> = <strong>سهرة</strong></span></div>
+      <div className="attendance-rules"><Clock3 size={18}/><span>الدوام الرسمي <bdi>07:00 – 17:00</bdi></span><i></i><span>قبل <bdi>06:00</bdi> = <strong>سروة</strong></span><i></i><span>بعد <bdi>21:00</bdi> = <strong>سهرة</strong></span><i></i><span>من <bdi>22:00</bdi> = <strong>سهرة + عشاء</strong></span></div>
     </section>
 
     {error && <div className="alert error no-print">{error}<button onClick={() => load(date)}>إعادة المحاولة</button></div>}
@@ -94,7 +95,7 @@ export default function AttendancePage() {
           <td>{dayName(date)}</td>
           <td><bdi className="attendance-row-date">{displayDate(date)}</bdi></td>
           <td>{editing ? <input className="attendance-time-input" type="time" step="60" value={row.checkIn || ""} onChange={(event) => changeTime(row.employeeCode, "checkIn", event.target.value)} aria-label={`وقت دخول ${row.name}`}/> : <AttendanceValue value={row.checkInDisplay} kind="early"/>}</td>
-          <td>{editing ? <input className="attendance-time-input" type="time" step="60" value={row.checkOut || ""} onChange={(event) => changeTime(row.employeeCode, "checkOut", event.target.value)} aria-label={`وقت خروج ${row.name}`}/> : <AttendanceValue value={row.checkOutDisplay} kind="late"/>}</td>
+          <td>{editing ? <input className="attendance-time-input" type="time" step="60" value={row.checkOut || ""} onChange={(event) => changeTime(row.employeeCode, "checkOut", event.target.value)} aria-label={`وقت خروج ${row.name}`}/> : <AttendanceValue value={row.checkOutDisplay} kind="late" labels={row.checkOutLabels}/>}</td>
         </tr>)}
       </tbody></table>{loading && <div className="table-loading">جارٍ تحميل سجل اليوم...</div>}</div>
       <footer className="attendance-footer"><span>عدد الموظفين: <strong>{number(summary.total)}</strong></span><span>المسجلون: <strong>{number(summary.recorded)}</strong></span><span>غير المسجلين: <strong>{number(summary.total - summary.recorded)}</strong></span></footer>

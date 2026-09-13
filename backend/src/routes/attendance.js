@@ -23,6 +23,9 @@ const saveSchema = z.object({
 
 const displayCheckIn = (value) => value && value < "06:00" ? "سروة" : value;
 const displayCheckOut = (value) => value && value > "21:00" ? "سهرة" : value;
+const checkOutLabels = (value) => value && value > "21:00"
+  ? ["سهرة", ...(value >= "22:00" ? ["عشاء"] : [])]
+  : [];
 
 async function loadDay(date) {
   const rows = await all(`
@@ -38,6 +41,7 @@ async function loadDay(date) {
     ...row,
     checkInDisplay: displayCheckIn(row.checkIn),
     checkOutDisplay: displayCheckOut(row.checkOut),
+    checkOutLabels: checkOutLabels(row.checkOut),
     hasRecord: Boolean(row.checkIn || row.checkOut)
   }));
 }
@@ -46,7 +50,7 @@ attendanceRouter.get("/", validate(dateSchema, "query"), asyncHandler(async (req
   const rows = await loadDay(request.query.date);
   response.json({
     date: request.query.date,
-    officialHours: { start: "07:00", end: "17:00", earlyBefore: "06:00", lateAfter: "21:00" },
+    officialHours: { start: "07:00", end: "17:00", earlyBefore: "06:00", lateAfter: "21:00", dinnerFrom: "22:00" },
     rows,
     summary: { total: rows.length, recorded: rows.filter((row) => row.hasRecord).length }
   });
@@ -80,7 +84,7 @@ attendanceRouter.put("/", requireWriteAccess, validate(dateSchema, "query"), val
   const rows = await loadDay(request.query.date);
   response.json({
     date: request.query.date,
-    officialHours: { start: "07:00", end: "17:00", earlyBefore: "06:00", lateAfter: "21:00" },
+    officialHours: { start: "07:00", end: "17:00", earlyBefore: "06:00", lateAfter: "21:00", dinnerFrom: "22:00" },
     rows,
     summary: { total: rows.length, recorded: rows.filter((row) => row.hasRecord).length },
     message: "تم حفظ سجل الحضور لهذا اليوم."
