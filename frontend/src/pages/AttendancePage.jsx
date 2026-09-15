@@ -55,6 +55,17 @@ export default function AttendancePage() {
       : row));
     setEditing(true); setDirty(true);
   };
+  const printDay = () => {
+    const previousTitle = document.title;
+    const [year, month, day] = date.split("-");
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+    document.title = `${Number(day)}-${Number(month)}-${year}`;
+    window.addEventListener("afterprint", restoreTitle, { once: true });
+    window.print();
+  };
   const save = async () => {
     setSaving(true); setError("");
     try {
@@ -68,7 +79,7 @@ export default function AttendancePage() {
   };
 
   return <div className="attendance-page">
-    <section className="page-heading no-print"><div><span>سجل مستقل</span><h1>الحضور والانصراف</h1><p>جدول يومي مستقل عن سجلات الإنتاج ومستحقات المشغلين والعمال.</p></div><div className="page-actions"><Link className="button primary" to="/attendance/employees"><UserCheck size={18}/>إدارة الموظفين</Link><button className="button secondary" onClick={() => window.print()}><Printer size={18}/>طباعة اليوم</button></div></section>
+    <section className="page-heading no-print"><div><span>سجل مستقل</span><h1>الحضور والانصراف</h1><p>جدول يومي مستقل عن سجلات الإنتاج ومستحقات المشغلين والعمال.</p></div><div className="page-actions"><Link className="button primary" to="/attendance/employees"><UserCheck size={18}/>إدارة الموظفين</Link><button className="button secondary" onClick={printDay}><Printer size={18}/>طباعة اليوم</button></div></section>
 
     <section className="attendance-toolbar no-print">
       <div className="attendance-date-nav">
