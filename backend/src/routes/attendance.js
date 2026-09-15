@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { all, batch, database } from "../db.js";
+import { all, batch, database, first } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { auditStatement } from "../lib/audit.js";
 import { requireWriteAccess, validate } from "../middleware/validate.js";
@@ -20,6 +20,13 @@ const attendanceEntry = z.object({
 const saveSchema = z.object({
   entries: z.array(attendanceEntry).max(200).refine((entries) => new Set(entries.map((entry) => entry.employeeCode)).size === entries.length, "لا يمكن تكرار الموظف.")
 });
+const employeeCodeSchema = z.object({ employeeCode: z.string().regex(/^\d{1,12}$/) });
+const employeeSchema = z.object({
+  employeeCode: z.string().regex(/^\d{1,12}$/),
+  name: z.string().trim().min(2).max(160)
+});
+const employeeNameSchema = employeeSchema.pick({ name: true });
+const normalizeEmployee = (row) => row ? { ...row, isActive: Boolean(row.isActive) } : row;
 
 const displayCheckIn = (value) => value && value < "06:00" ? "سروة" : value;
 const displayCheckOut = (value) => value && value > "21:00" ? "سهرة" : value;
@@ -29,22 +36,82 @@ const checkOutLabels = (value) => value && value > "21:00"
 
 async function loadDay(date) {
   const rows = await all(`
-    SELECT ae.employee_code AS employeeCode, ae.name,
+    SELECT ae.employee_code AS employeeCode, ae.name, ae.is_active AS isActive,
       ar.check_in AS checkIn, ar.check_out AS checkOut, ar.updated_at AS updatedAt
     FROM attendance_employees ae
     LEFT JOIN attendance_records ar
       ON ar.employee_code = ae.employee_code AND ar.attendance_date = ?
-    WHERE ae.is_active = 1
+    WHERE ae.is_active = 1 OR ar.id IS NOT NULL
     ORDER BY ae.sort_order, CAST(ae.employee_code AS INTEGER)
   `, date);
   return rows.map((row) => ({
     ...row,
+    isActive: Boolean(row.isActive),
     checkInDisplay: displayCheckIn(row.checkIn),
     checkOutDisplay: displayCheckOut(row.checkOut),
     checkOutLabels: checkOutLabels(row.checkOut),
     hasRecord: Boolean(row.checkIn || row.checkOut)
   }));
 }
+
+attendanceRouter.get("/employees", asyncHandler(async (request, response) => {
+  const includeInactive = request.query.includeInactive === "true";
+  const rows = await all(`
+    SELECT employee_code AS employeeCode, name, is_active AS isActive, sort_order AS sortOrder, created_at AS createdAt
+    FROM attendance_employees
+    ${includeInactive ? "" : "WHERE is_active = 1"}
+    ORDER BY sort_order, CAST(employee_code AS INTEGER)
+  `);
+  response.json({ data: rows.map(normalizeEmployee) });
+}));
+
+attendanceRouter.post("/employees", requireWriteAccess, validate(employeeSchema), asyncHandler(async (request, response) => {
+  const existing = await first("SELECT employee_code AS employeeCode, is_active AS isActive FROM attendance_employees WHERE employee_code = ?", request.body.employeeCode);
+  if (existing) throw new AppError(409, existing.isActive ? "رمز الموظف مستخدم بالفعل." : "هذا الرمز يخص موظفاً مؤرشفاً. يمكنك استعادته بدلاً من إنشاء سجل جديد.", "EMPLOYEE_CODE_EXISTS");
+  const nextOrder = await first("SELECT COALESCE(MAX(sort_order), 0) + 1 AS sortOrder FROM attendance_employees");
+  const row = { employeeCode: request.body.employeeCode, name: request.body.name, isActive: true, sortOrder: Number(nextOrder.sortOrder) };
+  const db = database();
+  await batch([
+    db.prepare("INSERT INTO attendance_employees (employee_code, name, sort_order) VALUES (?, ?, ?)").bind(row.employeeCode, row.name, row.sortOrder),
+    auditStatement(db, request, "create", "attendance_employee", row.employeeCode, null, row)
+  ]);
+  response.status(201).json({ data: row, message: "تمت إضافة موظف الحضور." });
+}));
+
+attendanceRouter.patch("/employees/:employeeCode", requireWriteAccess, validate(employeeCodeSchema, "params"), validate(employeeNameSchema), asyncHandler(async (request, response) => {
+  const before = normalizeEmployee(await first("SELECT employee_code AS employeeCode, name, is_active AS isActive, sort_order AS sortOrder FROM attendance_employees WHERE employee_code = ?", request.params.employeeCode));
+  if (!before) throw new AppError(404, "موظف الحضور غير موجود.", "NOT_FOUND");
+  const row = { ...before, name: request.body.name };
+  const db = database();
+  await batch([
+    db.prepare("UPDATE attendance_employees SET name = ? WHERE employee_code = ?").bind(row.name, row.employeeCode),
+    auditStatement(db, request, "update", "attendance_employee", row.employeeCode, before, row)
+  ]);
+  response.json({ data: row, message: "تم حفظ اسم الموظف." });
+}));
+
+attendanceRouter.delete("/employees/:employeeCode", requireWriteAccess, validate(employeeCodeSchema, "params"), asyncHandler(async (request, response) => {
+  const before = normalizeEmployee(await first("SELECT employee_code AS employeeCode, name, is_active AS isActive, sort_order AS sortOrder FROM attendance_employees WHERE employee_code = ?", request.params.employeeCode));
+  if (!before) throw new AppError(404, "موظف الحضور غير موجود.", "NOT_FOUND");
+  const db = database();
+  await batch([
+    db.prepare("UPDATE attendance_employees SET is_active = 0 WHERE employee_code = ?").bind(before.employeeCode),
+    auditStatement(db, request, "archive", "attendance_employee", before.employeeCode, before, { ...before, isActive: false })
+  ]);
+  response.status(204).end();
+}));
+
+attendanceRouter.patch("/employees/:employeeCode/restore", requireWriteAccess, validate(employeeCodeSchema, "params"), asyncHandler(async (request, response) => {
+  const before = normalizeEmployee(await first("SELECT employee_code AS employeeCode, name, is_active AS isActive, sort_order AS sortOrder FROM attendance_employees WHERE employee_code = ?", request.params.employeeCode));
+  if (!before) throw new AppError(404, "موظف الحضور غير موجود.", "NOT_FOUND");
+  const row = { ...before, isActive: true };
+  const db = database();
+  await batch([
+    db.prepare("UPDATE attendance_employees SET is_active = 1 WHERE employee_code = ?").bind(before.employeeCode),
+    auditStatement(db, request, "restore", "attendance_employee", before.employeeCode, before, row)
+  ]);
+  response.json({ data: row, message: "تمت استعادة الموظف إلى كشف الحضور." });
+}));
 
 attendanceRouter.get("/", validate(dateSchema, "query"), asyncHandler(async (request, response) => {
   const rows = await loadDay(request.query.date);
@@ -60,7 +127,12 @@ attendanceRouter.put("/", requireWriteAccess, validate(dateSchema, "query"), val
   const codes = request.body.entries.map((entry) => entry.employeeCode);
   if (codes.length) {
     const placeholders = codes.map(() => "?").join(", ");
-    const employees = await all(`SELECT employee_code FROM attendance_employees WHERE is_active = 1 AND employee_code IN (${placeholders})`, ...codes);
+    const employees = await all(`
+      SELECT ae.employee_code
+      FROM attendance_employees ae
+      LEFT JOIN attendance_records ar ON ar.employee_code = ae.employee_code AND ar.attendance_date = ?
+      WHERE ae.employee_code IN (${placeholders}) AND (ae.is_active = 1 OR ar.id IS NOT NULL)
+    `, request.query.date, ...codes);
     if (employees.length !== codes.length) throw new AppError(400, "تتضمن القائمة موظفاً غير متاح.", "INVALID_ATTENDANCE_EMPLOYEE");
   }
 

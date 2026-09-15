@@ -7,6 +7,7 @@ import LedgerPage from "./pages/LedgerPage.jsx";
 import WorkersPage from "./pages/WorkersPage.jsx";
 import WorkerDetailPage from "./pages/WorkerDetailPage.jsx";
 import AttendancePage from "./pages/AttendancePage.jsx";
+import AttendanceEmployeesPage from "./pages/AttendanceEmployeesPage.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
 
 export default function App() {
@@ -21,5 +22,5 @@ export default function App() {
   if (loading) return <div className="app-loader"><span></span><p>جارٍ تحميل النظام...</p></div>;
   if (!user) return <LoginPage onLogin={setUser} />;
   const logout = () => { authStore.clear(); setUser(null); };
-  return <ToastProvider><Routes><Route element={<Layout user={user} onLogout={logout} />}><Route path="/" element={<LedgerPage />} /><Route path="/workers" element={<WorkersPage />} /><Route path="/workers/:workerId" element={<WorkerDetailPage />} /><Route path="/attendance" element={<AttendancePage />} /><Route path="*" element={<Navigate to="/" replace />} /></Route></Routes></ToastProvider>;
+  return <ToastProvider><Routes><Route element={<Layout user={user} onLogout={logout} />}><Route path="/" element={<LedgerPage />} /><Route path="/workers" element={<WorkersPage />} /><Route path="/workers/:workerId" element={<WorkerDetailPage />} /><Route path="/attendance" element={<AttendancePage />} /><Route path="/attendance/employees" element={<AttendanceEmployeesPage />} /><Route path="*" element={<Navigate to="/" replace />} /></Route></Routes></ToastProvider>;
 }

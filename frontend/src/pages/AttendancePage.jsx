@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Pencil, Printer, RotateCcw, Save, UserCheck } from "lucide-react";
 import { api } from "../api.js";
+import { Link } from "react-router-dom";
 import { useToast } from "../context/ToastContext.jsx";
 import { dayName, displayDate, number, today } from "../utils.js";
 
@@ -67,7 +68,7 @@ export default function AttendancePage() {
   };
 
   return <div className="attendance-page">
-    <section className="page-heading no-print"><div><span>سجل مستقل</span><h1>الحضور والانصراف</h1><p>جدول يومي مستقل عن سجلات الإنتاج ومستحقات المشغلين والعمال.</p></div><button className="button secondary" onClick={() => window.print()}><Printer size={18}/>طباعة اليوم</button></section>
+    <section className="page-heading no-print"><div><span>سجل مستقل</span><h1>الحضور والانصراف</h1><p>جدول يومي مستقل عن سجلات الإنتاج ومستحقات المشغلين والعمال.</p></div><div className="page-actions"><Link className="button primary" to="/attendance/employees"><UserCheck size={18}/>إدارة الموظفين</Link><button className="button secondary" onClick={() => window.print()}><Printer size={18}/>طباعة اليوم</button></div></section>
 
     <section className="attendance-toolbar no-print">
       <div className="attendance-date-nav">
